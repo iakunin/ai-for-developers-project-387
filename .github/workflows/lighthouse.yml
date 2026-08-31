@@ -11,6 +11,8 @@ on:
 
 permissions:
   contents: read
+  # Агент заводит issue с правками по итогам отчёта; тем же правом создаётся метка.
+  issues: write
 
 # Ночной прогон и ручной запуск не должны идти одновременно: оба поднимают контейнер на :8080.
 concurrency:
@@ -61,3 +63,76 @@ jobs:
           name: lighthouse-report
           path: code/lighthouse/reports/
           retention-days: 30
+
+      # Дальше шаги идут без `if:`, то есть пропускаются, если аудит упал: отчётов в этом случае
+      # нет, а красный job и так виден. Issue заводится только по разобранному отчёту.
+      - name: Ensure the `lighthouse` label exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # `--force` обновляет существующую метку вместо ошибки, так что шаг идемпотентен.
+        run: >-
+          gh label create lighthouse
+          --color ededed
+          --description "Отчёты ночной проверки Lighthouse"
+          --force
+
+      - name: Install opencode CLI
+        # Версия зафиксирована, как в opencode-review.yml: обновление должно быть отдельным
+        # осознанным коммитом. Поднимать вручную.
+        run: |
+          curl -fsSL https://opencode.ai/install | bash -s -- --version 1.18.25
+          echo "$HOME/.opencode/bin" >> "$GITHUB_PATH"
+
+      - name: Turn the report into an issue
+        # Агенту нужен весь репозиторий: он смотрит исходники фронтенда, чтобы правки указывали
+        # на настоящие файлы, а не на абстрактные советы Lighthouse.
+        working-directory: ${{ github.workspace }}
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          # `gh` внутри шелла агента подхватывает это сам.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PROMPT: |
+            You are the nightly Lighthouse reporter for this repository. A run has just
+            finished; decide whether it needs a ticket, and if so, write one.
+
+            IMPORTANT: write the issue in Russian (на русском языке). Keep audit ids, metric
+            names, file paths and code identifiers in their original form.
+
+            WHAT YOU HAVE:
+            - `code/lighthouse/reports/manifest.json` — one entry per Lighthouse run. Only
+              entries with `isRepresentativeRun: true` matter; those are the median runs the
+              assertions were checked against.
+            - The `*.report.json` files next to it — the full Lighthouse result of each run.
+            - `cd code/lighthouse && make summary` prints the scores as a markdown table.
+            - The thresholds are in `code/lighthouse/lighthouserc.json` under
+              `ci.assert.assertions`. Do not hard-code them; read them from there.
+
+            WHEN TO ACT:
+            - If every category of every representative run is at or above its threshold, do
+              NOT create an issue. Say so and stop — the job summary and the artifact already
+              prove the check ran, and a ticket saying "всё хорошо" is noise.
+            - Otherwise create exactly ONE issue.
+
+            THE ISSUE:
+            - Title: `Lighthouse: отчёт за <YYYY-MM-DD>`, the UTC date of the run.
+            - Label: `lighthouse`.
+            - Body, in this order:
+              1. The markdown table from `make summary`.
+              2. A prioritised list of fixes. Each item names the failing audit (its
+                 Lighthouse id, e.g. `meta-description`, `unused-javascript`), the route it
+                 affects, the number Lighthouse reported, and what to change in this project.
+                 Read the relevant source under `code/frontend/src` before proposing a change,
+                 so each item points at a real file.
+              3. A link to this run:
+                 ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            - Ground every point in an audit that actually failed in the JSON. Do not invent
+              findings and do not list audits that already pass.
+            - Prefer few actionable items over an exhaustive dump — the team reads this in the
+              morning and picks work from it.
+
+            HOW TO CREATE IT:
+              gh issue create --repo "$GITHUB_REPOSITORY" --title "..." --label lighthouse --body-file /tmp/issue.md
+            Post exactly one issue and nothing else: no comments, no commits, no branches.
+        # `--auto` подтверждает вызовы инструментов без человека: без него агент сам себе
+        # запретит запустить `gh` и молча не заведёт issue.
+        run: opencode run --auto --model opencode/big-pickle "$PROMPT"
