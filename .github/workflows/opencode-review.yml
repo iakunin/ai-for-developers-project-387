@@ -1,0 +1,126 @@
+name: opencode-review
+
+# Runs the opencode AI agent as an automatic code reviewer on every pull request.
+# Docs: https://opencode.ai/docs/cli/
+#
+# This invokes the `opencode` CLI directly instead of the
+# `anomalyco/opencode/github` action on purpose. That action treats
+# `pull_request` as a "user event" and asserts that `github.actor` has write
+# permission on the repo. When opencode-agent[bot] opens a PR, or pushes to an
+# existing one, the actor is a bot and the collaborator API answers
+# `permission: none`, so the run always fails. The assertion is unconditional in
+# the released CLI, so `use_github_token` does not get around it.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+# Do not run more than one review per PR at a time; cancel superseded runs.
+concurrency:
+  group: opencode-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    # Skip drafts to avoid spending tokens on unfinished work.
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Acknowledge the pull request with 👀
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo, number: issue_number } = context.issue;
+            await github.rest.reactions.createForIssue({
+              owner, repo, issue_number, content: 'eyes',
+            });
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          # Nothing here needs git credentials: the agent reads the diff through
+          # `gh`, which authenticates with GITHUB_TOKEN from the step env.
+          persist-credentials: false
+
+      - name: Install opencode CLI
+        # Pinned rather than tracking the latest release, so an upgrade is a
+        # deliberate, reviewable commit. Bump this manually.
+        run: |
+          curl -fsSL https://opencode.ai/install | bash -s -- --version 1.18.25
+          echo "$HOME/.opencode/bin" >> "$GITHUB_PATH"
+
+      - name: Run OpenCode review
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          # `gh` inside the agent's shell picks this up automatically.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PROMPT: |
+            You are reviewing this pull request. Post a GitHub review with INLINE
+            comments anchored to specific lines of the diff — not one big comment.
+
+            IMPORTANT: Write everything in Russian (на русском языке). Keep code
+            identifiers, file paths, and code snippets in their original form.
+
+            SCOPE — review ONLY the changes in this PR, not the whole codebase:
+            - Base the review strictly on the diff (`gh pr diff`) and the files it
+              touches. Do NOT scan or comment on unrelated files.
+            - You may open a changed file to read context around a modified line, but
+              stay within the changed files. This keeps the review fast and cheap.
+
+            Focus on:
+            - Correctness bugs and edge cases (empty input, error paths, async races).
+            - Security issues (input validation, injection, unsafe data handling).
+            - API contract consistency between the route handlers under `app/api` and
+              the client components that call them.
+            - Test coverage gaps for the changed code.
+            - Readability and maintainability, but keep nits brief.
+
+            Ground every point in the actual diff. If the change looks good, say so
+            clearly in the summary instead of inventing issues.
+
+            HOW TO POST THE REVIEW (inline comments + verdict + label):
+            1. The GitHub CLI `gh` is installed and authenticated via the GITHUB_TOKEN
+               environment variable. Determine the repo and PR number from the event:
+                 REPO="$GITHUB_REPOSITORY"
+                 PR=$(jq -r '.pull_request.number' "$GITHUB_EVENT_PATH")
+            2. Inspect the diff to find valid line numbers to comment on:
+                 gh pr diff "$PR" --repo "$REPO"
+               Only anchor a comment to a line that appears in this diff. Use the NEW
+               file line number and side "RIGHT" for added/context lines; use side
+               "LEFT" only for removed lines.
+            3. Decide the VERDICT:
+               - If you found any blocking bug, security issue, or correctness problem,
+                 use "event": "REQUEST_CHANGES".
+               - If there are only minor nits or the code is clean, use "event": "COMMENT".
+            4. Create ONE review carrying all inline comments. Put file-specific findings
+               as inline `comments`; put only the overall summary in the top-level `body`.
+               Build a JSON payload and submit it with `gh api`:
+                 cat > /tmp/review.json <<'JSON'
+                 {
+                   "event": "REQUEST_CHANGES",
+                   "body": "Краткое резюме ревью на русском.",
+                   "comments": [
+                     { "path": "components/TaskList.tsx", "line": 52, "side": "RIGHT",
+                       "body": "Замечание к этой строке на русском." }
+                   ]
+                 }
+                 JSON
+                 gh api --method POST "repos/$REPO/pulls/$PR/reviews" --input /tmp/review.json
+               If a comment's line is rejected by the API (not part of the diff), adjust
+               the line to a nearby diff line and retry.
+            5. Apply the matching LABEL (the labels "needs-changes" and "lgtm" already
+               exist). Set exactly one and remove the other:
+               - Verdict REQUEST_CHANGES:
+                   gh pr edit "$PR" --repo "$REPO" --add-label needs-changes --remove-label lgtm
+               - Verdict COMMENT (clean / nits only):
+                   gh pr edit "$PR" --repo "$REPO" --add-label lgtm --remove-label needs-changes
+               (`--remove-label` on a label that isn't set is harmless.)
+            6. Post exactly one review — do not also add a separate issue comment.
+        # `--auto` approves tool use unattended. Without it `opencode run`
+        # auto-rejects every permission ask, which would silently leave the
+        # review unposted; the agent needs `bash` to call `gh`.
+        run: opencode run --auto --model opencode/big-pickle "$PROMPT"
