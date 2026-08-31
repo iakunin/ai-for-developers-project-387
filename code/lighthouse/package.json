@@ -1,0 +1,13 @@
+{
+  "name": "call-calendar-lighthouse",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Ночная проверка приложения «Календарь звонков» через Lighthouse CI",
+  "scripts": {
+    "audit": "lhci autorun"
+  },
+  "devDependencies": {
+    "@lhci/cli": "^0.15.1"
+  }
+}
