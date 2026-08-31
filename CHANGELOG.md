@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.2.0](https://github.com/iakunin/ai-for-developers-project-387/compare/call-calendar-v0.1.0...call-calendar-v0.2.0) (2026-08-31)
+
+
+### Features
+
+* add opencode workflows ([3fb9fa7](https://github.com/iakunin/ai-for-developers-project-387/commit/3fb9fa7845f0b4efa0154fda43b549ec54d05753))
+* init commit ([3284945](https://github.com/iakunin/ai-for-developers-project-387/commit/32849456feccc05fdf1e450d8d5dcf23a9835398))
+* **lighthouse:** add the Lighthouse CI part ([23e7fc7](https://github.com/iakunin/ai-for-developers-project-387/commit/23e7fc702fccc6b588a6a78a2b33bc6030c9a1af))
+* **lighthouse:** render the report as a markdown summary ([38d4fb4](https://github.com/iakunin/ai-for-developers-project-387/commit/38d4fb430728b313c22da84a3e67b01be82e3273))
+
 ## 0.1.0 (2026-08-31)
 
 
