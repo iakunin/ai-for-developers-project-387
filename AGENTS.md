@@ -11,6 +11,7 @@ contract is fixed first, then each part of the application is implemented indepe
 | `code/frontend/` | Application UI (Vite + React + TypeScript + Tailwind + shadcn/ui) |
 | `code/backend/`  | Application API (Java 25 + Gradle + Spring Boot, in-memory storage) |
 | `code/e2e/`      | End-to-end scenarios (Playwright, against the built Docker image) |
+| `code/lighthouse/` | Nightly Lighthouse audit of the built Docker image (Lighthouse CI) |
 | `docs/`          | Project step descriptions |
 
 ## Commands go through the Makefile
@@ -23,6 +24,7 @@ entry point, and only its targets are documented and kept in sync.
 - [`code/frontend/Makefile`](code/frontend/Makefile) — the UI
 - [`code/backend/Makefile`](code/backend/Makefile) — the API
 - [`code/e2e/Makefile`](code/e2e/Makefile) — the end-to-end scenarios
+- [`code/lighthouse/Makefile`](code/lighthouse/Makefile) — the nightly Lighthouse audit
 
 `make help` lists every target, and `make check` runs everything that must pass before the work is
 done. When a command is missing, add a target instead of running it by hand.
@@ -152,6 +154,45 @@ make check         # typecheck + test
 ```
 
 Before considering work done: `make check` must pass.
+
+## Lighthouse (`code/lighthouse`)
+
+A recurring check, not a gate on your work: `.github/workflows/lighthouse.yml` runs at 00:00 UTC
+(03:00 in Moscow) and on `workflow_dispatch`, audits `/`, `/book` and `/admin`, and leaves the
+report for the team to read in the morning.
+
+Key conventions:
+
+- Like `code/e2e`, the audit runs against the **built Docker image** — the artifact that ships —
+  and depends on nothing inside `code/frontend` or `code/backend`. Lighthouse CI starts and stops
+  the container itself, so `make audit` is the whole run.
+- The score thresholds live in `lighthouserc.json` and are asserted at **warn** level. A nightly
+  job that goes red on ordinary score noise gets muted within a week; the report says what
+  regressed, and the job stays green.
+- Nothing hard-codes those thresholds a second time: `scripts/summary.mjs` reads them from the
+  same file, so the table and the assertions cannot disagree about what counts as a regression.
+- Reports are not committed (`reports/` and `.lighthouseci/` are ignored). In CI they survive as
+  the `lighthouse-report` artifact for 30 days, and the scores also go into the job summary.
+- The opencode step opens a GitHub issue labelled `lighthouse` **only when a category is below its
+  threshold**. A green night produces no ticket — the artifact and the summary already prove the
+  check ran.
+- `/book/:eventTypeId` is not audited: the id is dynamic and would need a pre-flight request. Add
+  it if the report ever shows the other routes are clean.
+- Locally the audit needs Docker and an installed Chrome. Stop anything already listening on
+  `:8080` first — otherwise the container cannot bind the port and the run dies at startup.
+
+Commands MUST be run through [`code/lighthouse/Makefile`](code/lighthouse/Makefile):
+
+```bash
+cd code/lighthouse
+make help          # list every target
+make install       # install dependencies
+make image         # build the application image the audit runs against
+make audit         # run the audit (builds the image first)
+make summary       # render the newest report as a markdown table
+make report        # open the newest HTML report
+make check         # audit
+```
 
 ## Commit messages
 
