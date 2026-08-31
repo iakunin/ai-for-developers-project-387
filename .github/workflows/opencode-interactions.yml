@@ -8,6 +8,15 @@ on:
   pull_request_review_comment:
     types: [created]
 
+# Serialise runs per issue/PR. Several `/oc` replies posted in a burst used to
+# start overlapping jobs that all committed to the same branch; whichever
+# finished second failed its `git push` with "the remote contains work that you
+# do not have locally". Queue them instead of cancelling: every request the
+# author made should still be answered.
+concurrency:
+  group: opencode-interactions-${{ github.event.issue.number || github.event.pull_request.number }}
+  cancel-in-progress: false
+
 jobs:
   opencode:
     if: >-
@@ -39,6 +48,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
+          # Full history: the agent may rebase or amend on the PR branch, and a
+          # shallow clone leaves it without the commits such a rewrite needs.
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Run opencode
