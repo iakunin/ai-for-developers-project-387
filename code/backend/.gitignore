@@ -1,0 +1,5 @@
+build/
+.gradle/
+
+# The global `*.jar` ignore would otherwise silently drop the committed wrapper jar.
+!gradle-wrapper.jar

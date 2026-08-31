@@ -1,0 +1,51 @@
+name: frontend
+
+on:
+  push:
+    branches:
+      - '**'
+    paths:
+      - 'code/frontend/**'
+      - 'api-contract/openapi/**'
+      - '.github/workflows/frontend.yml'
+
+jobs:
+  check:
+    name: Typecheck, lint, test and build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: code/frontend
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: code/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: make install-ci
+
+      - name: Regenerate API types from the contract
+        run: make api-types
+
+      - name: Fail if the committed API types differ from the regenerated ones
+        run: |
+          if [ -n "$(git status --porcelain -- src/api/schema.d.ts)" ]; then
+            git --no-pager diff -- src/api/schema.d.ts
+            echo "::error file=code/frontend/src/api/schema.d.ts::src/api/schema.d.ts is out of date. Run 'make api-types' in code/frontend/ and commit the result."
+            exit 1
+          fi
+          echo "code/frontend/src/api/schema.d.ts is up to date."
+
+      - name: Lint
+        run: make lint
+
+      - name: Test
+        run: make test
+
+      - name: Build
+        run: make build

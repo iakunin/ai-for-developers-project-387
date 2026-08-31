@@ -1,0 +1,11 @@
+**/node_modules
+**/build
+**/dist
+**/.gradle
+.git
+.github
+.idea
+.omc
+doc
+docs
+code/e2e

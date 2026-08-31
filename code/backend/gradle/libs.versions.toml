@@ -1,0 +1,9 @@
+[versions]
+springBoot = "4.1.1"
+openapiGenerator = "7.25.0"
+spotless = "8.10.1"
+
+[plugins]
+spring-boot = { id = "org.springframework.boot", version.ref = "springBoot" }
+openapi-generator = { id = "org.openapi.generator", version.ref = "openapiGenerator" }
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }

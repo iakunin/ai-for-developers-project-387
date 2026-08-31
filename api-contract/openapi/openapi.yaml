@@ -1,0 +1,356 @@
+openapi: 3.0.0
+info:
+  title: Календарь звонков
+  version: 1.0.0
+  description: |-
+    Календарь звонков.
+
+    Контракт описывает внешнее поведение приложения и является единым источником
+    правды для фронтенда и бэкенда.
+
+    Роли:
+    - Владелец календаря — единственный заранее заданный профиль. Регистрации и
+      авторизации в приложении нет, поэтому админские операции не требуют
+      аутентификации.
+    - Гость — бронирует слоты без создания аккаунта и без входа в систему.
+
+    Правила бронирования:
+    - Окно записи — 14 дней, начиная с текущей даты.
+    - На одно и то же время нельзя создать две записи, даже если это разные типы
+      событий: занятость календаря общая для всех типов событий.
+tags:
+  - name: Владелец
+  - name: Типы событий
+  - name: Бронирования
+paths:
+  /api/bookings:
+    get:
+      operationId: Bookings_list
+      description: |-
+        Предстоящие встречи по всем типам событий одним списком, отсортированные по
+        возрастанию `start`. Страница владельца.
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Booking'
+      tags:
+        - Бронирования
+    post:
+      operationId: Bookings_create
+      description: |-
+        Создает бронирование гостя на выбранный свободный слот.
+
+        Возвращает 400, если типа события не существует (`event_type_not_found`),
+        `start` не совпадает с началом слота (`slot_not_available`) или выходит за
+        окно записи (`outside_booking_window`); 409, если на это время уже есть
+        бронирование любого типа события (`slot_taken`).
+      parameters: []
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+        '400':
+          description: |-
+            Данные запроса не проходят валидацию либо противоречат правилам бронирования.
+            Коды: `validation_failed`, `event_type_not_found`, `slot_not_available`,
+            `outside_booking_window`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: |-
+            Запрос конфликтует с текущим состоянием: тип события с таким `id` уже есть
+            либо выбранное время занято другим бронированием.
+            Коды: `event_type_id_taken`, `slot_taken`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      tags:
+        - Бронирования
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingCreate'
+  /api/event-types:
+    get:
+      operationId: EventTypes_list
+      description: |-
+        Список типов событий. Используется и владельцем, и публичной страницей
+        видов брони.
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EventType'
+      tags:
+        - Типы событий
+    post:
+      operationId: EventTypes_create
+      description: Создает тип события. Идентификатор задает владелец.
+      parameters: []
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventType'
+        '400':
+          description: |-
+            Данные запроса не проходят валидацию либо противоречат правилам бронирования.
+            Коды: `validation_failed`, `event_type_not_found`, `slot_not_available`,
+            `outside_booking_window`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: |-
+            Запрос конфликтует с текущим состоянием: тип события с таким `id` уже есть
+            либо выбранное время занято другим бронированием.
+            Коды: `event_type_id_taken`, `slot_taken`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      tags:
+        - Типы событий
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventType'
+  /api/event-types/{id}:
+    get:
+      operationId: EventTypes_get
+      description: Возвращает тип события по идентификатору.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventType'
+        '404':
+          description: 'Запрошенный ресурс не найден. Код: `event_type_not_found`.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      tags:
+        - Типы событий
+  /api/event-types/{id}/slots:
+    get:
+      operationId: EventTypes_listSlots
+      description: |-
+        Свободные слоты выбранного типа события в окне записи: 14
+        дней, начиная с текущей даты. Слоты отсортированы по возрастанию `start`.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Slot'
+        '404':
+          description: 'Запрошенный ресурс не найден. Код: `event_type_not_found`.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      tags:
+        - Типы событий
+  /api/owner:
+    get:
+      operationId: OwnerProfile_get
+      description: Возвращает заранее заданный профиль владельца календаря.
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Owner'
+      tags:
+        - Владелец
+components:
+  schemas:
+    ApiError:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          allOf:
+            - $ref: '#/components/schemas/ErrorCode'
+          description: Машиночитаемый код ошибки.
+        message:
+          type: string
+          description: Человекочитаемое описание ошибки.
+      description: Тело ответа при ошибке.
+    Booking:
+      type: object
+      required:
+        - id
+        - eventTypeId
+        - start
+        - end
+        - guestName
+        - guestEmail
+        - createdAt
+      properties:
+        id:
+          type: string
+          description: Идентификатор бронирования. Назначается сервером.
+        eventTypeId:
+          type: string
+          description: Идентификатор забронированного типа события.
+        start:
+          type: string
+          format: date-time
+          description: Начало встречи, UTC.
+        end:
+          type: string
+          format: date-time
+          description: Конец встречи, UTC. Равен `start` плюс `durationMinutes` типа события.
+        guestName:
+          type: string
+          description: Имя гостя.
+        guestEmail:
+          type: string
+          format: email
+          description: Email гостя.
+        createdAt:
+          type: string
+          format: date-time
+          description: Момент создания бронирования, UTC.
+      description: Бронирование, созданное гостем на конкретный слот.
+    BookingCreate:
+      type: object
+      required:
+        - eventTypeId
+        - start
+        - guestName
+        - guestEmail
+      properties:
+        eventTypeId:
+          type: string
+          description: Идентификатор выбранного типа события.
+        start:
+          type: string
+          format: date-time
+          description: Начало выбранного свободного слота, UTC.
+        guestName:
+          type: string
+          minLength: 1
+          description: Имя гостя.
+        guestEmail:
+          type: string
+          minLength: 1
+          format: email
+          description: Email гостя.
+      description: Данные, которые гость отправляет для создания бронирования.
+    ErrorCode:
+      type: string
+      enum:
+        - validation_failed
+        - event_type_not_found
+        - event_type_id_taken
+        - slot_not_available
+        - outside_booking_window
+        - slot_taken
+      description: |-
+        Машиночитаемые коды ошибок. Клиент принимает решения по `code`, а не по
+        тексту `message`.
+    EventType:
+      type: object
+      required:
+        - id
+        - title
+        - description
+        - durationMinutes
+      properties:
+        id:
+          type: string
+          minLength: 1
+          description: Идентификатор типа события. Задается владельцем при создании.
+        title:
+          type: string
+          minLength: 1
+          description: Название типа события. Показывается гостю на странице видов брони.
+        description:
+          type: string
+          description: Описание типа события. Показывается гостю на странице видов брони.
+        durationMinutes:
+          type: integer
+          format: int32
+          minimum: 1
+          description: Длительность встречи в минутах.
+      description: Тип события, который владелец предлагает гостям для бронирования.
+    Owner:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+          description: Идентификатор владельца.
+        name:
+          type: string
+          minLength: 1
+          description: Отображаемое имя владельца.
+      description: Владелец календаря — единственный заранее заданный профиль.
+    Slot:
+      type: object
+      required:
+        - start
+        - end
+      properties:
+        start:
+          type: string
+          format: date-time
+          description: Начало слота, UTC.
+        end:
+          type: string
+          format: date-time
+          description: Конец слота, UTC. Равен `start` плюс `durationMinutes` типа события.
+      description: |-
+        Свободный интервал в окне записи, на который гость может создать бронирование.
+        Слоты, пересекающиеся с любым существующим бронированием, свободными не
+        считаются и в выдачу не попадают.

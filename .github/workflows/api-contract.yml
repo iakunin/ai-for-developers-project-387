@@ -1,0 +1,42 @@
+name: api-contract
+
+on:
+  push:
+    branches:
+      - '**'
+    paths:
+      - 'api-contract/**'
+      - '.github/workflows/api-contract.yml'
+
+jobs:
+  openapi-drift:
+    name: OpenAPI is in sync with main.tsp
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api-contract
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: api-contract/package-lock.json
+
+      - name: Install dependencies
+        run: make install-ci
+
+      - name: Regenerate OpenAPI from TypeSpec
+        run: make build
+
+      - name: Fail if the committed OpenAPI differs from the regenerated one
+        run: |
+          if [ -n "$(git status --porcelain -- openapi)" ]; then
+            git --no-pager diff -- openapi
+            git status --porcelain -- openapi
+            echo "::error file=api-contract/main.tsp::api-contract/openapi is out of date. Run 'make build' in api-contract/ and commit the result."
+            exit 1
+          fi
+          echo "api-contract/openapi is up to date."

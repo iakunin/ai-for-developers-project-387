@@ -1,0 +1,36 @@
+server:
+  port: 8080
+
+spring:
+  threads:
+    virtual:
+      enabled: true
+
+call-calendar:
+  owner:
+    id: owner
+    name: Максим Якунин
+  schedule:
+    timezone: Europe/Moscow
+    working-days: [MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY]
+    open: "09:00"
+    close: "18:00"
+  booking:
+    window-days: 14
+  cors:
+    allowed-origins:
+      - http://localhost:5173
+  seed:
+    event-types:
+      - id: intro-call
+        title: Знакомство
+        description: Короткий созвон, чтобы познакомиться и обсудить задачу в общих чертах.
+        duration-minutes: 15
+      - id: consultation
+        title: Консультация
+        description: Разговор по конкретному вопросу с ответами и рекомендациями.
+        duration-minutes: 30
+      - id: deep-dive
+        title: Разбор задачи
+        description: Подробный разбор задачи или кода с планом дальнейших шагов.
+        duration-minutes: 60

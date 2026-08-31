@@ -1,0 +1,30 @@
+{
+  "name": "call-calendar-api",
+  "version": "0.1.0",
+  "description": "API contract for the Call Calendar project",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsp compile .",
+    "watch": "tsp compile . --watch"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/iakunin/ai-for-developers-project-386.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/iakunin/ai-for-developers-project-386/issues"
+  },
+  "homepage": "https://github.com/iakunin/ai-for-developers-project-386#readme",
+  "private": true,
+  "devDependencies": {
+    "@typespec/compiler": "^1.15.0",
+    "@typespec/http": "^1.15.0",
+    "@typespec/openapi": "^1.15.0",
+    "@typespec/openapi3": "^1.15.0"
+  }
+}
