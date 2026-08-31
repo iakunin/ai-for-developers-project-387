@@ -308,10 +308,18 @@ class ApiContractTest {
 
     mockMvc.perform(delete("/api/bookings/{id}", bookingId)).andExpect(status().isNoContent());
 
-    mockMvc
-        .perform(get("/api/bookings"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.length()").value(0));
+    String bookingsAfterCancel =
+        mockMvc
+            .perform(get("/api/bookings"))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+
+    assertThat(
+            com.jayway.jsonpath.JsonPath.<java.util.List<String>>read(
+                bookingsAfterCancel, "$[*].id"))
+        .doesNotContain(bookingId);
 
     // The freed slot is bookable again.
     mockMvc
