@@ -1,0 +1,31 @@
+{
+  "ci": {
+    "collect": {
+      "url": [
+        "http://localhost:8080/",
+        "http://localhost:8080/book",
+        "http://localhost:8080/admin"
+      ],
+      "numberOfRuns": 3,
+      "startServerCommand": "docker run --rm --name call-calendar-lighthouse -p 8080:8080 call-calendar",
+      "startServerReadyPattern": "Started CallCalendarApplication",
+      "startServerReadyTimeout": 120000,
+      "settings": {
+        "chromeFlags": "--no-sandbox"
+      }
+    },
+    "assert": {
+      "assertions": {
+        "categories:performance": ["warn", { "minScore": 0.9 }],
+        "categories:accessibility": ["warn", { "minScore": 0.9 }],
+        "categories:best-practices": ["warn", { "minScore": 0.9 }],
+        "categories:seo": ["warn", { "minScore": 0.9 }]
+      }
+    },
+    "upload": {
+      "target": "filesystem",
+      "outputDir": "./reports",
+      "reportFilenamePattern": "%%PATHNAME%%-%%DATETIME%%.%%EXTENSION%%"
+    }
+  }
+}
