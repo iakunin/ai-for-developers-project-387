@@ -1,4 +1,4 @@
-import { request } from './client'
+import { request, requestVoid } from './client'
 import type { Booking, BookingCreate, EventType, Owner, Slot } from './types'
 
 /** Профиль владельца календаря. */
@@ -44,7 +44,7 @@ export function createEventType(payload: EventType): Promise<EventType> {
 
 /** Отменяет (удаляет) бронирование по идентификатору. */
 export function cancelBooking(id: string): Promise<void> {
-  return request<void>(`/api/bookings/${encodeURIComponent(id)}`, {
+  return requestVoid(`/api/bookings/${encodeURIComponent(id)}`, {
     method: 'DELETE',
   })
 }

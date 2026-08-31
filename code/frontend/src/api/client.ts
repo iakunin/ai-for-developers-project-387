@@ -43,10 +43,9 @@ async function toApiError(response: Response): Promise<ApiError> {
   return new ApiError(response.status, 'unknown_error', `Запрос завершился с кодом ${response.status}.`)
 }
 
-export async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  let response: Response
+async function executeFetch(path: string, init?: RequestInit): Promise<Response> {
   try {
-    response = await fetch(`${apiBaseUrl()}${path}`, {
+    return await fetch(`${apiBaseUrl()}${path}`, {
       ...init,
       headers: {
         Accept: 'application/json',
@@ -57,15 +56,22 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   } catch {
     throw new ApiError(0, 'network_error', 'Не удалось связаться с сервером.')
   }
+}
+
+export async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await executeFetch(path, init)
 
   if (!response.ok) {
     throw await toApiError(response)
   }
 
-  // 204 No Content (e.g. a successful delete) has no body.
-  if (response.status === 204) {
-    return undefined as T
-  }
-
   return (await response.json()) as T
+}
+
+export async function requestVoid(path: string, init?: RequestInit): Promise<void> {
+  const response = await executeFetch(path, init)
+
+  if (!response.ok) {
+    throw await toApiError(response)
+  }
 }

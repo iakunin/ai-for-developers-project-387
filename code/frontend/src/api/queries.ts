@@ -69,7 +69,9 @@ export function useCancelBooking() {
 
   return useMutation({
     mutationFn: cancelBooking,
-    onSettled: () => {
+    // Неверный ответ (404, сеть) не меняет занятость календаря,
+    // поэтому инвалидируем кэш только при успешной отмене.
+    onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.bookings })
       // Освободившийся слот влияет на доступность времени всех типов событий,
       // поэтому перезапрашиваем слоты по всем типам.
