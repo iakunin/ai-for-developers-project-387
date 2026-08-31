@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help install install-ci image audit report check
+.PHONY: help install install-ci image audit summary report check
 
 help: ## Show this help
 	@grep -E '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "%-12s %s\n", $$1, $$2}'
@@ -19,6 +19,9 @@ image: ## Build the application image the audit runs against
 audit: image ## Audit the built image with Lighthouse CI
 	@docker rm -f call-calendar-lighthouse >/dev/null 2>&1 || true
 	npm run audit
+
+summary: ## Render the newest report as a markdown table
+	@npm run --silent summary
 
 report: ## Open the newest HTML report
 	@f=$$(ls -t reports/*.html | head -1); echo "$$f"; open "$$f" 2>/dev/null || xdg-open "$$f"

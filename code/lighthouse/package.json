@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Ночная проверка приложения «Календарь звонков» через Lighthouse CI",
   "scripts": {
-    "audit": "lhci autorun"
+    "audit": "lhci autorun",
+    "summary": "node scripts/summary.mjs"
   },
   "devDependencies": {
     "@lhci/cli": "^0.15.1"
