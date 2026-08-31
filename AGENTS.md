@@ -187,3 +187,26 @@ fix: reject overlapping bookings across event types
 docs: add step 3 frontend task description
 refactor(frontend)!: drop legacy slots response shape
 ```
+
+### Agents committing from a GitHub workflow
+
+The `opencode` GitHub action does **not** let the agent name its own commit. When the agent
+finishes with uncommitted changes, the action commits them itself, and the message it uses comes
+from a hard-coded follow-up prompt — *"Summarize the following in less than 40 characters"* — that
+never mentions commits at all. Nothing in this file reaches that prompt, which is how
+`Fixed test to assert bookingId removed, not empty list.` ended up on a branch.
+
+The action only takes over when the working tree is dirty. If the tree is clean but `HEAD` has
+moved, it skips the commit and does nothing but `git push`. So, when you are an agent running
+inside a workflow:
+
+- **Commit your own work before you finish.** Leave `git status --porcelain` empty; the action
+  pushes what you committed.
+- Write the message yourself, following the rules above.
+- `user.name` and `user.email` are already configured for you (`opencode-agent[bot]`) before your
+  session starts — do not touch them, and do not push or rebase yourself.
+- When you open a pull request, its **title** must be conventional too. `main` takes squash merges,
+  and GitHub uses the PR title as the squash commit message whenever a PR has more than one commit,
+  so a non-conventional title is dropped from the changelog exactly like a non-conventional commit.
+
+`.github/workflows/conventional-commits.yml` enforces both on every pull request.
