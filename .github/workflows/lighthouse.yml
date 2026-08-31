@@ -1,0 +1,63 @@
+name: lighthouse
+
+# Ночная проверка приложения через Lighthouse CI: отчёт готов к утру, команда смотрит его и
+# решает, какие правки нужны. Тот же прогон запускается вручную через workflow_dispatch.
+on:
+  schedule:
+    # 00:00 UTC — 03:00 в Europe/Moscow. Расписание идёт только от ветки по умолчанию, и GitHub
+    # ставит такие запуски в общую очередь: старт на несколько минут позже назначенного — норма.
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Ночной прогон и ручной запуск не должны идти одновременно: оба поднимают контейнер на :8080.
+concurrency:
+  group: lighthouse
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: Lighthouse audit of the built image
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: code/lighthouse
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: code/lighthouse/package-lock.json
+
+      - name: Install dependencies
+        run: make install-ci
+
+      # `make audit` собирает образ сам. Отдельным шагом сборка остаётся читаемой в логе — как и
+      # в e2e, это самая долгая часть job'а.
+      - name: Build the application image
+        run: make image
+
+      # Пороговые проверки настроены на уровень warn, поэтому шаг зелёный даже когда оценки
+      # просели: отчёт показывает регрессию, а ночной прогон не краснеет на обычном разбросе.
+      - name: Run the audit
+        run: make audit
+
+      # `|| true`: если аудит упал раньше, чем записал отчёты, job уже красный из-за предыдущего
+      # шага — незачем добавлять второй красный шаг поверх настоящей причины.
+      - name: Publish the scores to the job summary
+        if: always()
+        run: make summary >> "$GITHUB_STEP_SUMMARY" || true
+
+      # 30 дней, а не 7 как в e2e: по ночному отчёту смотрят динамику, а не один прогон.
+      - name: Upload the Lighthouse report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-report
+          path: code/lighthouse/reports/
+          retention-days: 30
