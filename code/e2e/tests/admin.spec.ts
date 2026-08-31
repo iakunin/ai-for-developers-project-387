@@ -24,3 +24,25 @@ test('Сценарий 4: бронирование видно в админке'
   await expect(row).toContainText('intro-call')
   await expect(row).toContainText(startTimeOf(slotLabel))
 })
+
+test('Сценарий: администратор отменяет бронирование', async ({ page }) => {
+  const GUEST_EMAIL = `e2e-admin-cancel-${Date.now()}@example.com`
+
+  await openEventType(page, 'intro-call')
+  await pickFirstFreeSlot(page)
+  await bookAs(page, 'Гость на отмену', GUEST_EMAIL)
+
+  await page.goto('/admin')
+  await expect(page.getByRole('heading', { name: 'Админка' })).toBeVisible()
+
+  const row = page.getByRole('listitem').filter({ hasText: GUEST_EMAIL })
+  await expect(row).toHaveCount(1)
+
+  // Обрабатываем window.confirm: подтверждаем отмену.
+  page.on('dialog', (dialog) => dialog.accept())
+
+  await row.getByRole('button', { name: 'Отменить' }).click()
+
+  // Запись исчезает из списка после отмены.
+  await expect(row).toHaveCount(0)
+})

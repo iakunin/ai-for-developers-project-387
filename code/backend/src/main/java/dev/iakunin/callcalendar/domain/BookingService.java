@@ -40,10 +40,15 @@ public class BookingService {
   /** Upcoming meetings across all event types, ascending by start. */
   public List<Booking> upcoming() {
     Instant now = clock.instant();
-    return bookings.findAll().stream()
-        .filter(booking -> booking.getEnd().toInstant().isAfter(now))
-        .sorted(Comparator.comparing(Booking::getStart))
-        .toList();
+    lock.lock();
+    try {
+      return bookings.findAll().stream()
+          .filter(booking -> booking.getEnd().toInstant().isAfter(now))
+          .sorted(Comparator.comparing(Booking::getStart))
+          .toList();
+    } finally {
+      lock.unlock();
+    }
   }
 
   /**
@@ -98,6 +103,19 @@ public class BookingService {
               .build();
       bookings.save(booking);
       return booking;
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  /** Cancel (delete) a booking by its id. */
+  public void cancel(String id) {
+    lock.lock();
+    try {
+      if (!bookings.deleteById(id)) {
+        throw ApiException.notFound(
+            ErrorCode.BOOKING_NOT_FOUND, "Бронирование «" + id + "» не найдено.");
+      }
     } finally {
       lock.unlock();
     }

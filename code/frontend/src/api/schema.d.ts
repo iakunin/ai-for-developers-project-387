@@ -32,6 +32,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/bookings/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description Отменяет (удаляет) бронирование по идентификатору. Страница владельца. */
+        delete: operations["Bookings_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/event-types": {
         parameters: {
             query?: never;
@@ -169,7 +186,7 @@ export interface components {
          *     тексту `message`.
          * @enum {string}
          */
-        ErrorCode: "validation_failed" | "event_type_not_found" | "event_type_id_taken" | "slot_not_available" | "outside_booking_window" | "slot_taken";
+        ErrorCode: "validation_failed" | "event_type_not_found" | "event_type_id_taken" | "slot_not_available" | "outside_booking_window" | "slot_taken" | "booking_not_found";
         /** @description Тип события, который владелец предлагает гостям для бронирования. */
         EventType: {
             /** @description Идентификатор типа события. Задается владельцем при создании. */
@@ -287,6 +304,38 @@ export interface operations {
             };
         };
     };
+    Bookings_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description There is no content to send for this request, but the headers may be useful. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /**
+             * @description Запрошенный ресурс не найден. Коды: `event_type_not_found`,
+             *     `booking_not_found`.
+             */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     EventTypes_list: {
         parameters: {
             query?: never;
@@ -377,7 +426,10 @@ export interface operations {
                     "application/json": components["schemas"]["EventType"];
                 };
             };
-            /** @description Запрошенный ресурс не найден. Код: `event_type_not_found`. */
+            /**
+             * @description Запрошенный ресурс не найден. Коды: `event_type_not_found`,
+             *     `booking_not_found`.
+             */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -408,7 +460,10 @@ export interface operations {
                     "application/json": components["schemas"]["Slot"][];
                 };
             };
-            /** @description Запрошенный ресурс не найден. Код: `event_type_not_found`. */
+            /**
+             * @description Запрошенный ресурс не найден. Коды: `event_type_not_found`,
+             *     `booking_not_found`.
+             */
             404: {
                 headers: {
                     [name: string]: unknown;

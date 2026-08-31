@@ -1,6 +1,7 @@
 package dev.iakunin.callcalendar.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -275,5 +276,71 @@ class ApiContractTest {
     assertThat(
             com.jayway.jsonpath.JsonPath.<java.util.List<String>>read(bookingsJson, "$[*].start"))
         .isSorted();
+  }
+
+  @Test
+  void cancelsABookingAndRemovesItFromTheList() throws Exception {
+    String start =
+        com.jayway.jsonpath.JsonPath.read(
+            mockMvc
+                .perform(get("/api/event-types/consultation/slots"))
+                .andReturn()
+                .getResponse()
+                .getContentAsString(),
+            "$[0].start");
+
+    String createdJson =
+        mockMvc
+            .perform(
+                post("/api/bookings")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        """
+                        {"eventTypeId":"consultation","start":"%s",
+                         "guestName":"Гость","guestEmail":"guest@example.com"}
+                        """
+                            .formatted(start)))
+            .andExpect(status().isCreated())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    String bookingId = com.jayway.jsonpath.JsonPath.read(createdJson, "$.id");
+
+    mockMvc.perform(delete("/api/bookings/{id}", bookingId)).andExpect(status().isNoContent());
+
+    String bookingsAfterCancel =
+        mockMvc
+            .perform(get("/api/bookings"))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+
+    assertThat(
+            com.jayway.jsonpath.JsonPath.<java.util.List<String>>read(
+                bookingsAfterCancel, "$[*].id"))
+        .doesNotContain(bookingId);
+
+    // The freed slot is bookable again.
+    mockMvc
+        .perform(
+            post("/api/bookings")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {"eventTypeId":"consultation","start":"%s",
+                     "guestName":"Гость","guestEmail":"guest@example.com"}
+                    """
+                        .formatted(start)))
+        .andExpect(status().isCreated());
+  }
+
+  @Test
+  void returnsNotFoundWhenCancellingAnUnknownBooking() throws Exception {
+    mockMvc
+        .perform(delete("/api/bookings/missing"))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.code").value("booking_not_found"))
+        .andExpect(jsonPath("$.message").isNotEmpty());
   }
 }
