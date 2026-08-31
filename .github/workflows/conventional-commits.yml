@@ -1,0 +1,80 @@
+# Guards the input release-please builds `CHANGELOG.md` and `version.txt` from.
+# A commit that does not follow Conventional Commits is not an error anywhere —
+# it is silently dropped from the changelog, which is exactly why it needs a gate.
+#
+# Both the commits and the PR title are checked: `main` takes squash merges, and
+# GitHub uses the PR title as the squash commit message whenever a PR carries
+# more than one commit, so the title reaches `main` just as a commit message does.
+name: conventional-commits
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+concurrency:
+  group: conventional-commits-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          # The whole PR range must be readable, not just its head commit.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check the commits and the pull request title
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          set -euo pipefail
+
+          types='feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert'
+          # <type>[(scope)][!]: <description>
+          pattern="^($types)(\([a-z0-9._/-]+\))?!?: .+"
+
+          failed=0
+
+          check() {
+            local what="$1" subject="$2"
+
+            if ! printf '%s' "$subject" | grep -qE "$pattern"; then
+              echo "::error::$what does not match '<type>[(scope)][!]: <description>': $subject"
+              echo "  allowed types: ${types//|/, }"
+              failed=1
+              return
+            fi
+            # The rules in AGENTS.md: lowercase description, no trailing period.
+            local description="${subject#*: }"
+            if printf '%s' "$description" | grep -qE '^[A-Z]'; then
+              echo "::error::$what starts with a capital letter: $subject"
+              failed=1
+            fi
+            if printf '%s' "$description" | grep -qE '\.$'; then
+              echo "::error::$what ends with a period: $subject"
+              failed=1
+            fi
+          }
+
+          # Merge commits carry GitHub's generated subject and are squashed away,
+          # so they are not part of the changelog and are not checked.
+          for sha in $(git rev-list --no-merges "$BASE_SHA..$HEAD_SHA"); do
+            check "commit ${sha:0:8}" "$(git log -1 --format=%s "$sha")"
+          done
+
+          check "the pull request title" "$PR_TITLE"
+
+          if [ "$failed" -ne 0 ]; then
+            echo
+            echo "See the 'Commit messages' section of AGENTS.md."
+            exit 1
+          fi
+
+          echo "Every commit and the pull request title follow Conventional Commits."
