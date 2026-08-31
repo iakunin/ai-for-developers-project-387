@@ -103,6 +103,19 @@ public class BookingService {
     }
   }
 
+  /** Cancel (delete) a booking by its id. */
+  public void cancel(String id) {
+    lock.lock();
+    try {
+      if (!bookings.deleteById(id)) {
+        throw ApiException.notFound(
+            ErrorCode.BOOKING_NOT_FOUND, "Бронирование «" + id + "» не найдено.");
+      }
+    } finally {
+      lock.unlock();
+    }
+  }
+
   /**
    * Checked here rather than through the generated bean-validation annotations, so behaviour does
    * not depend on what the generator emitted.

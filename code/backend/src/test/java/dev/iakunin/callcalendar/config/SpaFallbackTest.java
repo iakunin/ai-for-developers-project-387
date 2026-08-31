@@ -53,9 +53,14 @@ class SpaFallbackTest {
     assertThat(eventType.getBody()).isNotNull();
     assertThat(eventType.getBody().getCode()).isEqualTo(ErrorCode.EVENT_TYPE_NOT_FOUND);
 
-    ResponseEntity<String> unmapped =
-        restTemplate.getForEntity("/api/bookings/unmapped", String.class);
+    ResponseEntity<String> unmapped = restTemplate.getForEntity("/api/unknown-path", String.class);
     assertThat(unmapped.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+
+    // A GET on a booking resource exposes the DELETE-only /api/bookings/{id} route, so it must
+    // answer with a real HTTP status (405), never the SPA's index.html.
+    ResponseEntity<String> wrongMethod =
+        restTemplate.getForEntity("/api/bookings/some-id", String.class);
+    assertThat(wrongMethod.getStatusCode()).isEqualTo(HttpStatus.METHOD_NOT_ALLOWED);
   }
 
   @Test

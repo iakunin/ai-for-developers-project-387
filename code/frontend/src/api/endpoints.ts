@@ -41,3 +41,10 @@ export function createEventType(payload: EventType): Promise<EventType> {
     body: JSON.stringify(payload),
   })
 }
+
+/** Отменяет (удаляет) бронирование по идентификатору. */
+export function cancelBooking(id: string): Promise<void> {
+  return request<void>(`/api/bookings/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  })
+}

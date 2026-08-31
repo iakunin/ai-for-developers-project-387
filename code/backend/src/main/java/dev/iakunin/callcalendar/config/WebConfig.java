@@ -25,7 +25,7 @@ public class WebConfig implements WebMvcConfigurer {
     registry
         .addMapping("/**")
         .allowedOrigins(properties.cors().allowedOrigins().toArray(String[]::new))
-        .allowedMethods("GET", "POST")
+        .allowedMethods("GET", "POST", "DELETE", "OPTIONS")
         .allowedHeaders("*");
   }
 

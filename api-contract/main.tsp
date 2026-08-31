@@ -143,6 +143,9 @@ enum ErrorCode {
 
   /** На это время уже есть бронирование любого типа события. */
   SlotTaken: "slot_taken",
+
+  /** Бронирования с указанным идентификатором не существует. */
+  BookingNotFound: "booking_not_found",
 }
 
 /** Тело ответа при ошибке. */
@@ -166,7 +169,8 @@ model BadRequest {
 }
 
 /**
- * Запрошенный ресурс не найден. Код: `event_type_not_found`.
+ * Запрошенный ресурс не найден. Коды: `event_type_not_found`,
+ * `booking_not_found`.
  */
 @error
 model NotFound {
@@ -251,4 +255,11 @@ interface Bookings {
     @statusCode statusCode: 201;
     @body created: Booking;
   } | BadRequest | Conflict;
+
+  /**
+   * Отменяет (удаляет) бронирование по идентификатору. Страница владельца.
+   */
+  @route("{id}")
+  @delete
+  delete(@path id: string): void | NotFound;
 }

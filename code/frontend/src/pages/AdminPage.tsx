@@ -1,7 +1,7 @@
 import { useState } from 'react'
 
 import { errorMessage } from '@/api/errorMessages'
-import { useBookings, useCreateEventType, useEventTypes, useOwner } from '@/api/queries'
+import { useBookings, useCancelBooking, useCreateEventType, useEventTypes, useOwner } from '@/api/queries'
 import { QueryState } from '@/components/QueryState'
 import { Alert } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -49,7 +49,10 @@ export function AdminPage() {
                         {booking.guestName} · {booking.guestEmail}
                       </p>
                     </div>
-                    <Badge>{booking.eventTypeId}</Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge>{booking.eventTypeId}</Badge>
+                      <CancelBookingButton bookingId={booking.id} />
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -183,5 +186,29 @@ function EventTypeForm() {
         </form>
       </CardContent>
     </Card>
+  )
+}
+
+function CancelBookingButton({ bookingId }: { bookingId: string }) {
+  const cancelBooking = useCancelBooking()
+
+  return (
+    <div className="flex items-center gap-2">
+      {cancelBooking.isError && (
+        <Alert variant="destructive">{errorMessage(cancelBooking.error)}</Alert>
+      )}
+      <Button
+        variant="destructive"
+        size="sm"
+        disabled={cancelBooking.isPending}
+        onClick={() => {
+          if (window.confirm('Отменить это бронирование?')) {
+            cancelBooking.mutate(bookingId)
+          }
+        }}
+      >
+        {cancelBooking.isPending ? 'Отмена…' : 'Отменить'}
+      </Button>
+    </div>
   )
 }

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import {
+  cancelBooking,
   createBooking,
   createEventType,
   getEventType,
@@ -59,6 +60,23 @@ export function useCreateEventType() {
     mutationFn: createEventType,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.eventTypes })
+    },
+  })
+}
+
+export function useCancelBooking() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: cancelBooking,
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.bookings })
+      // Освободившийся слот влияет на доступность времени всех типов событий,
+      // поэтому перезапрашиваем слоты по всем типам.
+      void queryClient.invalidateQueries({
+        predicate: ({ queryKey }) =>
+          queryKey[0] === 'event-types' && queryKey[2] === 'slots',
+      })
     },
   })
 }

@@ -20,4 +20,9 @@ public class InMemoryBookingRepository implements BookingRepository {
   public void save(Booking booking) {
     bookings.add(booking);
   }
+
+  @Override
+  public boolean deleteById(String id) {
+    return bookings.removeIf(b -> b.getId().equals(id));
+  }
 }
